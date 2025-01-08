@@ -24,17 +24,45 @@ services:
       - db
     networks:
       - log_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
-  frontend:
+  test-client:
     build:
-      context: ./Frontend
+      context: .
+      dockerfile: Backend/Dockerfile
+    depends_on:
+      - rsyslog
+    networks:
+      - log_network
+    environment:
+      - RSYSLOG_HOST=rsyslog
+      - RSYSLOG_PORT=5014
+    command: python /app/Backend/generate_logs.py
+
+  rsyslog:
+    build:
+      context: ./Backend/rsyslog
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
-    environment:
-      - REACT_APP_API_URL=http://localhost:8000
+      - "5014-5017:5014-5017"
+    volumes:
+      - rsyslog_logs:/var/log/rsyslog
+    networks:
+      - log_network
+
+  fluent-bit:
+    build:
+      context: ./Backend/fluent-bit
+      dockerfile: Dockerfile
+    ports:
+      - "5170:5170"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     networks:
       - log_network
 
@@ -48,54 +76,6 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - log_network
-
-  rsyslog:
-    build:
-      context: ./Backend/rsyslog
-      dockerfile: Dockerfile
-    volumes:
-      - rsyslog_logs:/var/log/rsyslog
-    ports:
-      - "5014:5014"
-      - "5015:5015"
-      - "5016:5016"
-      - "5017:5017"
-      - "5018:5018"
-      - "5019:5019"
-    networks:
-      - log_network
-
-  fluent-bit:
-    build:
-      context: ./Backend/fluent-bit
-      dockerfile: Dockerfile
-    volumes:
-      - ./Backend/fluent-bit/config:/fluent-bit/etc
-    ports:
-      - "5170:5170"
-      - "5171:5171"
-      - "5172:5172"
-      - "5173:5173"
-      - "5174:5174"
-      - "5175:5175"
-    depends_on:
-      - api
-      - rsyslog
-    networks:
-      - log_network
-
-  test-client:
-    image: alpine
-    command: sh -c 'while true; do echo "Test log message from Alpine client" | nc -q0 rsyslog 5014; echo "Sent log message"; sleep 5; done'
-    depends_on:
-      - rsyslog
-    networks:
-      - log_network
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
 networks:
   log_network:

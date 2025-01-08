@@ -21,5 +21,9 @@ python /app/Backend/populate_db.py
 
 # Start the application
 echo "Starting the application..."
-cd /app && uvicorn Backend.main:app --host 0.0.0.0 --port 8000 --reload
+cd /app && uvicorn Backend.main:app --host 0.0.0.0 --port 8000 --reload &
+
+# Start sending test logs
+echo "Starting test log sender..."
+python /app/Backend/generate_logs.py
 

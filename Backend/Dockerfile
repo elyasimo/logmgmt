@@ -8,7 +8,7 @@ COPY Backend /app/Backend
 # Copy requirements file
 COPY Backend/requirements.txt /app/
 
-# Install psycopg2 dependencies and netcat
+# Install psycopg2 dependencies and netcat-openbsd
 RUN apt-get update && apt-get install -y libpq-dev netcat-openbsd
 
 # Install dependencies

@@ -51,10 +51,17 @@ class LogEntry(Base):
     __tablename__ = "logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    timestamp = Column(DateTime, index=True, default=datetime.utcnow)
+    timestamp = Column(DateTime, index=True)
     message = Column(String)
     severity = Column(Enum(SeverityEnum), index=True)
     device_id = Column(Integer, ForeignKey("devices.id"))
+    cnnid = Column(String, index=True)
+    location = Column(String, index=True)
+    city = Column(String, index=True)
+    product = Column(String, index=True)
+    device_number = Column(String)
+    vendor = Column(String, index=True)
+    device_type = Column(String, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     device = relationship("Device", back_populates="logs")
@@ -108,16 +115,26 @@ class LogEntryCreate(BaseModel):
     message: str
     severity: SeverityEnum
     device_id: int
+    vendor: str
+    cnnid: Optional[str] = None
+    location: Optional[str] = None
+    city: Optional[str] = None
+    product: Optional[str] = None
+    device_number: Optional[str] = None
+    device_type: Optional[str] = None
 
 class LogEntryResponse(BaseModel):
     id: int
     timestamp: datetime
     message: str
     severity: SeverityEnum
-    device_name: str
-    device_type: str
-    vendor_name: str
-    customer_cnnid: str
+    vendor: str
+    cnnid: Optional[str]
+    location: Optional[str]
+    city: Optional[str]
+    product: Optional[str]
+    device_number: Optional[str]
+    device_type: Optional[str]
 
     class Config:
         orm_mode = True

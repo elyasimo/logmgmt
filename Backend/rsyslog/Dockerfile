@@ -7,9 +7,7 @@ RUN apk add --no-cache \
     logrotate \
     python3 \
     supervisor \
-    util-linux \
-    rsyslog-omfile \
-    rsyslog-omfwd && \
+    util-linux && \
     mkdir -p /var/spool/rsyslog \
              /var/log/rsyslog \
              /var/log/supervisor \
@@ -31,6 +29,8 @@ RUN apk add --no-cache \
                  /app/rsyslog/scripts && \
     touch /dev/log && \
     chmod 666 /dev/log
+
+RUN rsyslogd -v
 
 # Copy configuration files
 COPY config/*.conf /etc/rsyslog.d/

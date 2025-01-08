@@ -7,6 +7,9 @@ COPY config/input.conf /fluent-bit/etc/input.conf
 COPY config/filter.conf /fluent-bit/etc/filter.conf
 COPY config/output.conf /fluent-bit/etc/output.conf
 
+# Copy Lua script
+COPY scripts/parse_devid.lua /fluent-bit/scripts/parse_devid.lua
+
 # Expose ports
 EXPOSE 5170 5171 5172 5173 5174 5175
 
