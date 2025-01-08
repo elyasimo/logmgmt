@@ -1,0 +1,146 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Backend/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./Backend:/app/Backend
+    environment:
+      - DATABASE_URL=postgresql://loguser:logpassword@db:5432/logdb
+      - PYTHONPATH=/app
+      - POSTGRES_DB=logdb
+      - POSTGRES_USER=loguser
+      - POSTGRES_PASSWORD=logpassword
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=DEBUG
+      - JWT_SECRET_KEY=H8md0llah2025
+    depends_on:
+      - db
+    networks:
+      - log_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - NODE_ENV=production
+    depends_on:
+      - api
+    networks:
+      - log_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=loguser
+      - POSTGRES_PASSWORD=logpassword
+      - POSTGRES_DB=logdb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - log_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U loguser -d logdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rsyslog:
+    build:
+      context: ./Backend/rsyslog
+      dockerfile: Dockerfile
+    volumes:
+      - rsyslog_logs:/var/log/rsyslog
+      - ./Backend/rsyslog/config:/etc/rsyslog.d
+      - ./Backend/rsyslog/scripts:/app/rsyslog/scripts
+    ports:
+      - "514:514/udp"
+      - "5014:5014/tcp"
+    environment:
+      - TZ=UTC
+      - RSYSLOG_CONFIG_DIR=/etc/rsyslog.d
+      - LOG_LEVEL=DEBUG
+    networks:
+      - log_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "ps aux | grep rsyslogd || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  fluent-bit:
+    build:
+      context: ./Backend/fluent-bit
+      dockerfile: Dockerfile
+    volumes:
+      - ./Backend/fluent-bit/config:/fluent-bit/etc
+      - ./Backend/fluent-bit/scripts:/fluent-bit/scripts
+    ports:
+      - "5140:5140"
+    environment:
+      - FLUENT_BIT_CONFIG=/fluent-bit/etc/fluent-bit.conf
+      - FLUENT_BIT_SCRIPTS=/fluent-bit/scripts
+      - API_HOST=api
+      - API_PORT=8000
+    depends_on:
+      - api
+      - rsyslog
+    networks:
+      - log_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/fluent-bit/bin/fluent-bit", "-c", "/dev/null", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  test-client:
+    image: alpine
+    command: sh -c 'while true; do logger -n fluent-bit -P 5140 -t TestClient -p local0.info "Test log message from Alpine client"; echo "Sent log message"; sleep 5; done'
+    depends_on:
+      - fluent-bit
+    networks:
+      - log_network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "ps", "aux", "|", "grep", "logger"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  log_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  rsyslog_logs:

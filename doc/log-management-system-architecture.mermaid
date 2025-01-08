@@ -1,0 +1,8 @@
+graph TD
+    A[Client] -->|HTTP/HTTPS| B(Frontend - React)
+    B -->|API Calls| C(Backend API - FastAPI)
+    C -->|Queries| D[(Database - PostgreSQL)]
+    E[Log Sources] -->|Syslog| F(rsyslog)
+    F -->|Forward| G(Fluent Bit)
+    G -->|Ingest| C
+    C -->|Store| D

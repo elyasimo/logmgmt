@@ -1,0 +1,107 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Backend/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./Backend:/app/Backend
+    environment:
+      - DATABASE_URL=postgresql://loguser:logpassword@db:5432/logdb
+      - PYTHONPATH=/app
+      - POSTGRES_DB=logdb
+      - POSTGRES_USER=loguser
+      - POSTGRES_PASSWORD=logpassword
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=DEBUG
+      - JWT_SECRET_KEY=H8md0llah2025
+    depends_on:
+      - db
+    networks:
+      - log_network
+
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    depends_on:
+      - api
+    networks:
+      - log_network
+
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=loguser
+      - POSTGRES_PASSWORD=logpassword
+      - POSTGRES_DB=logdb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - log_network
+
+  rsyslog:
+    build:
+      context: ./Backend/rsyslog
+      dockerfile: Dockerfile
+    volumes:
+      - rsyslog_logs:/var/log/rsyslog
+    ports:
+      - "5014:5014"
+      - "5015:5015"
+      - "5016:5016"
+      - "5017:5017"
+      - "5018:5018"
+      - "5019:5019"
+    networks:
+      - log_network
+
+  fluent-bit:
+    build:
+      context: ./Backend/fluent-bit
+      dockerfile: Dockerfile
+    volumes:
+      - ./Backend/fluent-bit/config:/fluent-bit/etc
+    ports:
+      - "5170:5170"
+      - "5171:5171"
+      - "5172:5172"
+      - "5173:5173"
+      - "5174:5174"
+      - "5175:5175"
+    depends_on:
+      - api
+      - rsyslog
+    networks:
+      - log_network
+
+  test-client:
+    image: alpine
+    command: sh -c 'while true; do echo "Test log message from Alpine client" | nc -q0 rsyslog 5014; echo "Sent log message"; sleep 5; done'
+    depends_on:
+      - rsyslog
+    networks:
+      - log_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  log_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  rsyslog_logs:
+

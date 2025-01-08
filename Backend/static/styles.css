@@ -1,0 +1,22 @@
+/* Custom styles for the Log Management API */
+body {
+    font-family: Arial, sans-serif;
+    line-height: 1.6;
+    color: #333;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.api-title {
+    color: #0066cc;
+}
+
+.api-description {
+    font-style: italic;
+    margin-bottom: 1rem;
+}
+

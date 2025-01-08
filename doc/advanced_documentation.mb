@@ -1,0 +1,157 @@
+### 1.1 High-Level Architecture Diagram
+I'd be happy to create advanced documentation for the project we've implemented so far. I'll structure this documentation to cover various aspects of the system, including architecture, components, API endpoints, and key features.
+
+# Log Management System - Advanced Documentation
+## 1. System Architecture
+The Log Management System is built using a microservices architecture, consisting of the following main components:
+1. Backend API (FastAPI)
+2. Frontend (React)
+3. Database (PostgreSQL)
+4. Log Ingestion Service (Fluent Bit)
+5. Log Storage Service (rsyslog)
+
+
+### 1.1 High-Level Architecture Diagram
+
+```mermaid
+Log Management System Architecture.download-icon {
+            cursor: pointer;
+            transform-origin: center;
+        }
+        .download-icon .arrow-part {
+            transition: transform 0.35s cubic-bezier(0.35, 0.2, 0.14, 0.95);
+             transform-origin: center;
+        }
+        button:has(.download-icon):hover .download-icon .arrow-part, button:has(.download-icon):focus-visible .download-icon .arrow-part {
+          transform: translateY(-1.5px);
+        }
+        #mermaid-diagram-r2b5{font-family:var(--font-geist-sans);font-size:12px;fill:#000000;}#mermaid-diagram-r2b5 .error-icon{fill:#552222;}#mermaid-diagram-r2b5 .error-text{fill:#552222;stroke:#552222;}#mermaid-diagram-r2b5 .edge-thickness-normal{stroke-width:1px;}#mermaid-diagram-r2b5 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-diagram-r2b5 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-diagram-r2b5 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-diagram-r2b5 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-diagram-r2b5 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-diagram-r2b5 .marker{fill:#666;stroke:#666;}#mermaid-diagram-r2b5 .marker.cross{stroke:#666;}#mermaid-diagram-r2b5 svg{font-family:var(--font-geist-sans);font-size:12px;}#mermaid-diagram-r2b5 p{margin:0;}#mermaid-diagram-r2b5 .label{font-family:var(--font-geist-sans);color:#000000;}#mermaid-diagram-r2b5 .cluster-label text{fill:#333;}#mermaid-diagram-r2b5 .cluster-label span{color:#333;}#mermaid-diagram-r2b5 .cluster-label span p{background-color:transparent;}#mermaid-diagram-r2b5 .label text,#mermaid-diagram-r2b5 span{fill:#000000;color:#000000;}#mermaid-diagram-r2b5 .node rect,#mermaid-diagram-r2b5 .node circle,#mermaid-diagram-r2b5 .node ellipse,#mermaid-diagram-r2b5 .node polygon,#mermaid-diagram-r2b5 .node path{fill:#eee;stroke:#999;stroke-width:1px;}#mermaid-diagram-r2b5 .rough-node .label text,#mermaid-diagram-r2b5 .node .label text{text-anchor:middle;}#mermaid-diagram-r2b5 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mermaid-diagram-r2b5 .node .label{text-align:center;}#mermaid-diagram-r2b5 .node.clickable{cursor:pointer;}#mermaid-diagram-r2b5 .arrowheadPath{fill:#333333;}#mermaid-diagram-r2b5 .edgePath .path{stroke:#666;stroke-width:2.0px;}#mermaid-diagram-r2b5 .flowchart-link{stroke:#666;fill:none;}#mermaid-diagram-r2b5 .edgeLabel{background-color:white;text-align:center;}#mermaid-diagram-r2b5 .edgeLabel p{background-color:white;}#mermaid-diagram-r2b5 .edgeLabel rect{opacity:0.5;background-color:white;fill:white;}#mermaid-diagram-r2b5 .labelBkg{background-color:rgba(255, 255, 255, 0.5);}#mermaid-diagram-r2b5 .cluster rect{fill:hsl(0, 0%, 98.9215686275%);stroke:#707070;stroke-width:1px;}#mermaid-diagram-r2b5 .cluster text{fill:#333;}#mermaid-diagram-r2b5 .cluster span{color:#333;}#mermaid-diagram-r2b5 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:var(--font-geist-sans);font-size:12px;background:hsl(-160, 0%, 93.3333333333%);border:1px solid #707070;border-radius:2px;pointer-events:none;z-index:100;}#mermaid-diagram-r2b5 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#000000;}#mermaid-diagram-r2b5 .flowchart-link{stroke:hsl(var(--gray-400));stroke-width:1px;}#mermaid-diagram-r2b5 .marker,#mermaid-diagram-r2b5 marker,#mermaid-diagram-r2b5 marker *{fill:hsl(var(--gray-400))!important;stroke:hsl(var(--gray-400))!important;}#mermaid-diagram-r2b5 .label,#mermaid-diagram-r2b5 text,#mermaid-diagram-r2b5 text>tspan{fill:hsl(var(--black))!important;color:hsl(var(--black))!important;}#mermaid-diagram-r2b5 .background,#mermaid-diagram-r2b5 rect.relationshipLabelBox{fill:hsl(var(--white))!important;}#mermaid-diagram-r2b5 .entityBox,#mermaid-diagram-r2b5 .attributeBoxEven{fill:hsl(var(--gray-150))!important;}#mermaid-diagram-r2b5 .attributeBoxOdd{fill:hsl(var(--white))!important;}#mermaid-diagram-r2b5 .label-container,#mermaid-diagram-r2b5 rect.actor{fill:hsl(var(--white))!important;stroke:hsl(var(--gray-400))!important;}#mermaid-diagram-r2b5 line{stroke:hsl(var(--gray-400))!important;}#mermaid-diagram-r2b5 :root{--mermaid-font-family:var(--font-geist-sans);}HTTP/HTTPSAPI CallsQueriesSyslogForwardIngestStoreClientFrontend - ReactBackend API - FastAPIDatabase - PostgreSQLLog SourcesrsyslogFluent Bit
+```
+
+## 2. Backend API (FastAPI)
+The backend API is built using FastAPI, a modern, fast (high-performance) web framework for building APIs with Python 3.6+ based on standard Python type hints.
+
+### 2.1 Key Components
+- `main.py`: Entry point of the application
+- `api/`: Directory containing route handlers and business logic
+- `models.py`: Database models and Pydantic schemas
+- `database.py`: Database connection and session management
+- `dependencies.py`: Dependency injection and utility functions
+
+
+### 2.2 API Endpoints
+
+| Endpoint | Method | Description
+|-----|-----|-----
+| `/api/v1/login` | POST | User authentication
+| `/api/v1/logout` | POST | User logout
+| `/api/v1/logs` | GET | Retrieve logs with pagination
+| `/api/v1/logs` | POST | Ingest new log entries
+| `/api/v1/search` | GET | Search logs with advanced filtering
+| `/api/v1/statistics` | GET | Retrieve log statistics
+| `/api/v1/alerts` | GET/POST | Manage alerts
+| `/api/v1/users/me` | GET | Get current user information
+
+
+### 2.3 Authentication
+The system uses JWT (JSON Web Tokens) for authentication. The `create_access_token` function in `dependencies.py` generates tokens, and the `get_current_user` dependency function validates them.
+
+### 2.4 Database Models
+Key models include:
+- `LogEntry`: Represents a single log entry
+- `User`: Represents a user of the system
+- `Customer`: Represents a customer organization
+- `Vendor`: Represents a vendor (e.g., Fortinet, F5)
+- `Device`: Represents a device generating logs
+
+
+## 3. Frontend (React)
+The frontend is built using React, utilizing modern practices and libraries for state management and UI components.
+
+### 3.1 Key Components
+- `App.tsx`: Main application component
+- `LogSearch.tsx`: Log search and display component
+- `Login.tsx`: User authentication component
+- `Layout.tsx`: Application layout component
+- `DateRangeFilter.tsx`: Date range selection component
+
+
+### 3.2 Routing
+React Router is used for client-side routing. The main routes are:
+- `/`: Home page (Log Search)
+- `/login`: Login page
+
+
+### 3.3 State Management
+The application uses React's built-in hooks (useState, useEffect) for state management. For more complex state management needs, consider implementing Redux or React Context in the future.
+
+### 3.4 API Integration
+Axios is used for making HTTP requests to the backend API. API calls are centralized in the respective components.
+
+## 4. Database (PostgreSQL)
+PostgreSQL is used as the primary database for storing log entries, user information, and related data.
+
+### 4.1 Key Tables
+- `logs`: Stores all log entries
+- `users`: Stores user information
+- `customers`: Stores customer information
+- `vendors`: Stores vendor information
+- `devices`: Stores device information
+
+
+### 4.2 Indexing
+Ensure proper indexing on frequently queried fields such as `timestamp`, `level`, `device_id`, etc., for optimal query performance.
+
+## 5. Log Ingestion (Fluent Bit)
+Fluent Bit is used as a log processor and forwarder, collecting logs from various sources and forwarding them to the backend API.
+
+### 5.1 Configuration
+The Fluent Bit configuration (`fluent-bit.conf`) includes:
+- Input plugins for syslog and forward protocol
+- Parsing and filtering of logs
+- Output plugin to forward logs to the backend API
+
+
+### 5.2 Custom Parsing
+Custom Lua scripts are used for parsing logs from different vendors:
+- `fortinet_parser.lua`
+- `f5_parser.lua`
+- `broadcom_parser.lua`
+- `checkpoint_parser.lua`
+- `paloalto_parser.lua`
+- `cisco_parser.lua`
+
+
+## 6. Log Storage (rsyslog)
+rsyslog is used for reliable log reception and storage.
+
+### 6.1 Configuration
+The rsyslog configuration includes:
+- UDP and TCP input modules
+- Custom templates for log formatting
+- Rules for log routing and storage
+
+
+### 6.2 Log Rotation
+Logrotate is configured to manage log file rotation, ensuring efficient use of storage and maintaining log history.
+
+## 7. Security Considerations
+- JWT tokens are used for API authentication
+- Passwords are hashed using bcrypt before storage
+- HTTPS should be implemented for all communications in production
+- Rate limiting should be implemented to prevent abuse
+
+
+## 8. Scalability and Performance
+- Database queries are optimized with proper indexing
+- Pagination is implemented for large result sets
+- Consider implementing caching mechanisms for frequently accessed data
+- For high-volume log ingestion, consider using a message queue (e.g., RabbitMQ, Kafka) between Fluent Bit and the backend API
+
+
+## 9. Future Enhancements
+- Implement real-time log streaming using WebSockets
+- Add more advanced analytics and visualization features
+- Implement role-based access control (RBAC) for multi-tenant support
+- Integrate with external alerting systems (e.g., PagerDuty, Slack)
+- Implement log archiving and long-term storage solutions
