@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, JSON, Boolean, Enum
 from sqlalchemy.orm import declarative_base, relationship
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, EmailStr
 from datetime import datetime
 from typing import Optional, List
 import re
@@ -14,12 +14,19 @@ class SeverityEnum(str, enum.Enum):
     high = "high"
     critical = "critical"
 
+class AuthMethod(str, enum.Enum):
+    local = "local"
+    ldap = "ldap"
+    active_directory = "active_directory"
+    sso = "sso"
+    azure_ad = "azure_ad"
+
 class Customer(Base):
     __tablename__ = "customers"
 
     id = Column(Integer, primary_key=True, index=True)
-    cnnid = Column(String, unique=True, index=True)
-    name = Column(String)
+    cnnid = Column(String, unique=True, index=True, nullable=False)
+    name = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     vendors = relationship("Vendor", back_populates="customer")
@@ -28,7 +35,7 @@ class Vendor(Base):
     __tablename__ = "vendors"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
+    name = Column(String, index=True, nullable=False)
     customer_id = Column(Integer, ForeignKey("customers.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -39,8 +46,8 @@ class Device(Base):
     __tablename__ = "devices"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-    type = Column(String, index=True)
+    name = Column(String, index=True, nullable=False)
+    type = Column(String, index=True, nullable=False)
     vendor_id = Column(Integer, ForeignKey("vendors.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -51,17 +58,17 @@ class LogEntry(Base):
     __tablename__ = "logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    timestamp = Column(DateTime, index=True)
-    message = Column(String)
-    severity = Column(Enum(SeverityEnum), index=True)
-    device_id = Column(Integer, ForeignKey("devices.id"))
-    cnnid = Column(String, index=True)
+    timestamp = Column(DateTime, index=True, nullable=False)
+    message = Column(String, nullable=False)
+    severity = Column(Enum(SeverityEnum), index=True, nullable=False)
+    device_id = Column(Integer, ForeignKey("devices.id"), nullable=False)
+    cnnid = Column(String, index=True, nullable=False)
     location = Column(String, index=True)
     city = Column(String, index=True)
-    product = Column(String, index=True)
+    product = Column(String, index=True, nullable=False)
     device_number = Column(String)
-    vendor = Column(String, index=True)
-    device_type = Column(String, index=True)
+    vendor = Column(String, index=True, nullable=False)
+    device_type = Column(String, index=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     device = relationship("Device", back_populates="logs")
@@ -70,11 +77,13 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
-    email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
+    username = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     role = Column(String, default="user")
+    auth_method = Column(Enum(AuthMethod), default=AuthMethod.local)
+    external_id = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -82,9 +91,9 @@ class Alert(Base):
     __tablename__ = "alerts"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-    query = Column(String)
-    severity = Column(Enum(SeverityEnum))
+    name = Column(String, index=True, nullable=False)
+    query = Column(String, nullable=False)
+    severity = Column(Enum(SeverityEnum), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -92,8 +101,8 @@ class Metric(Base):
     __tablename__ = "metrics"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-    value = Column(Float)
+    name = Column(String, index=True, nullable=False)
+    value = Column(Float, nullable=False)
     timestamp = Column(DateTime, index=True, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -102,9 +111,9 @@ class ChangelogEntry(Base):
     __tablename__ = "changelog_entries"
 
     id = Column(Integer, primary_key=True, index=True)
-    version = Column(String, index=True)
+    version = Column(String, index=True, nullable=False)
     date = Column(DateTime, default=datetime.utcnow)
-    changes = Column(JSON)
+    changes = Column(JSON, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -116,12 +125,12 @@ class LogEntryCreate(BaseModel):
     severity: SeverityEnum
     device_id: int
     vendor: str
-    cnnid: Optional[str] = None
+    cnnid: str
     location: Optional[str] = None
     city: Optional[str] = None
-    product: Optional[str] = None
+    product: str
     device_number: Optional[str] = None
-    device_type: Optional[str] = None
+    device_type: str
 
 class LogEntryResponse(BaseModel):
     id: int
@@ -129,20 +138,40 @@ class LogEntryResponse(BaseModel):
     message: str
     severity: SeverityEnum
     vendor: str
-    cnnid: Optional[str]
-    location: Optional[str]
-    city: Optional[str]
-    product: Optional[str]
-    device_number: Optional[str]
-    device_type: Optional[str]
+    cnnid: str
+    product: str
+    device_type: str
+    location: Optional[str] = None
+    city: Optional[str] = None
+    device_number: Optional[str] = None
 
     class Config:
         orm_mode = True
 
+class PaginatedResponse(BaseModel):
+    items: List[LogEntryResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+class SearchQuery(BaseModel):
+    query: str = ""
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    cnnid: Optional[str] = None
+    vendor: Optional[str] = None
+    device_type: Optional[str] = None
+    severity: Optional[SeverityEnum] = None
+    page: int = 1
+    page_size: int = 10
+    sort_by: str = "timestamp"
+    sort_order: str = "desc"
+
 class CustomerResponse(BaseModel):
     id: int
     cnnid: str
-    name: Optional[str]
+    name: str
 
     class Config:
         orm_mode = True
@@ -177,15 +206,19 @@ class AlertResponse(AlertCreate):
 
 class UserBase(BaseModel):
     username: str
-    email: str
+    email: EmailStr
 
 class UserCreate(UserBase):
-    password: str
+    password: Optional[str]
+    auth_method: AuthMethod = AuthMethod.local
+    external_id: Optional[str] = None
 
 class UserInDB(UserBase):
     id: Optional[int] = None
     is_active: bool = True
     role: str = "user"
+    auth_method: AuthMethod
+    external_id: Optional[str] = None
 
     class Config:
         orm_mode = True
@@ -196,6 +229,7 @@ class UserResponse(UserInDB):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    refresh_token: str
 
 class TokenData(BaseModel):
     username: Optional[str] = None
@@ -210,27 +244,6 @@ class MetricResponse(MetricCreate):
 
     class Config:
         orm_mode = True
-
-class SearchQuery(BaseModel):
-    query: str = ""
-    fields: Optional[List[str]] = None
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    cnnid: Optional[str] = None
-    vendor: Optional[str] = None
-    device_type: Optional[str] = None
-    severity: Optional[SeverityEnum] = None
-    page: int = 1
-    page_size: int = 10
-    sort_by: str = "timestamp"
-    sort_order: str = "desc"
-
-class PaginatedResponse(BaseModel):
-    items: List[LogEntryResponse]
-    total: int
-    page: int
-    page_size: int
-    total_pages: int
 
 class ChangelogChange(BaseModel):
     type: str = Field(..., regex="^(added|changed|deprecated|removed|fixed|security)$")

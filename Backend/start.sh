@@ -27,3 +27,5 @@ cd /app && uvicorn Backend.main:app --host 0.0.0.0 --port 8000 --reload &
 echo "Starting test log sender..."
 python /app/Backend/generate_logs.py
 
+echo "Starting sample log generation..."
+python /app/Backend/scripts/generate_sample_logs.py

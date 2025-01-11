@@ -2,6 +2,7 @@ import socket
 import time
 import datetime
 import json
+import random
 
 def send_log(message, host, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -11,7 +12,18 @@ def send_log(message, host, port):
 
 def generate_log(vendor):
     timestamp = datetime.datetime.now().isoformat()
-    log_message = f'{{"vendor": "{vendor}", "timestamp": "{timestamp}", "message": "Test log message from Python client"}}'
+    cnnid = f"CNN{random.randint(1, 999):03d}"
+    device_types = ["firewall", "router", "switch", "endpoint"]
+    device_type = random.choice(device_types)
+    severity = random.choice(["low", "medium", "high", "critical"])
+    log_message = {
+        "vendor": vendor,
+        "timestamp": timestamp,
+        "message": f"Test log message from {device_type}",
+        "cnnid": cnnid,
+        "device_type": device_type,
+        "severity": severity
+    }
     return log_message
 
 if __name__ == "__main__":
@@ -28,7 +40,7 @@ if __name__ == "__main__":
     while True:
         for vendor, port in vendors.items():
             log_message = generate_log(vendor)
-            send_log(json.loads(log_message), rsyslog_host, port)
-            print(f"Sent {vendor} log: {log_message}")
+            send_log(log_message, rsyslog_host, port)
+            print(f"Sent {vendor} log: {json.dumps(log_message)}")
         time.sleep(5)
 

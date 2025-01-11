@@ -31,22 +31,28 @@ services:
       timeout: 10s
       retries: 3
 
-  frontend:
+  frontend_next:
+    container_name: frontend_next
     build:
-      context: ./Frontend
+      context: ./Frontendnextjs
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
     environment:
-      - REACT_APP_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_URL=http://api:8000
       - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+    volumes:
+      - ./Frontendnextjs:/app
+      - /app/node_modules
+      - /app/.next
     depends_on:
       - api
     networks:
       - log_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--spider", "http://localhost:3000"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -144,3 +150,4 @@ networks:
 volumes:
   postgres_data:
   rsyslog_logs:
+
