@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, JSON, Boolean, Enum
+from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, JSON, Boolean, Enum, Table
 from sqlalchemy.orm import declarative_base, relationship
 from pydantic import BaseModel, Field, validator, EmailStr
 from datetime import datetime
@@ -7,6 +7,12 @@ import re
 import enum
 
 Base = declarative_base()
+
+# Association table for many-to-many relationship between User and Group
+user_group = Table('user_group', Base.metadata,
+    Column('user_id', Integer, ForeignKey('users.id')),
+    Column('group_id', Integer, ForeignKey('groups.id'))
+)
 
 class SeverityEnum(str, enum.Enum):
     low = "low"
@@ -62,13 +68,13 @@ class LogEntry(Base):
     message = Column(String, nullable=False)
     severity = Column(Enum(SeverityEnum), index=True, nullable=False)
     device_id = Column(Integer, ForeignKey("devices.id"), nullable=False)
-    cnnid = Column(String, index=True, nullable=False)
+    cnnid = Column(String, index=True, nullable=True)
     location = Column(String, index=True)
     city = Column(String, index=True)
-    product = Column(String, index=True, nullable=False)
+    product = Column(String, index=True, nullable=True)
     device_number = Column(String)
-    vendor = Column(String, index=True, nullable=False)
-    device_type = Column(String, index=True, nullable=False)
+    vendor = Column(String, index=True, nullable=True)
+    device_type = Column(String, index=True, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     device = relationship("Device", back_populates="logs")
@@ -79,13 +85,27 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=True)
+    hashed_password = Column(String, nullable=False)
+    name = Column(String, index=True)
     is_active = Column(Boolean, default=True)
     role = Column(String, default="user")
     auth_method = Column(Enum(AuthMethod), default=AuthMethod.local)
     external_id = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    groups = relationship("Group", secondary=user_group, back_populates="users")
+
+class Group(Base):
+    __tablename__ = "groups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    description = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    users = relationship("User", secondary=user_group, back_populates="groups")
 
 class Alert(Base):
     __tablename__ = "alerts"
@@ -124,23 +144,23 @@ class LogEntryCreate(BaseModel):
     message: str
     severity: SeverityEnum
     device_id: int
-    vendor: str
-    cnnid: str
+    vendor: Optional[str] = None
+    cnnid: Optional[str] = None
     location: Optional[str] = None
     city: Optional[str] = None
-    product: str
+    product: Optional[str] = None
     device_number: Optional[str] = None
-    device_type: str
+    device_type: Optional[str] = None
 
 class LogEntryResponse(BaseModel):
     id: int
     timestamp: datetime
     message: str
     severity: SeverityEnum
-    vendor: str
-    cnnid: str
-    product: str
-    device_type: str
+    vendor: Optional[str] = None
+    cnnid: Optional[str] = None
+    product: Optional[str] = None
+    device_type: Optional[str] = None
     location: Optional[str] = None
     city: Optional[str] = None
     device_number: Optional[str] = None
@@ -207,24 +227,60 @@ class AlertResponse(AlertCreate):
 class UserBase(BaseModel):
     username: str
     email: EmailStr
+    name: str
 
 class UserCreate(UserBase):
-    password: Optional[str]
+    password: str
+    role: str = "user"
     auth_method: AuthMethod = AuthMethod.local
     external_id: Optional[str] = None
 
-class UserInDB(UserBase):
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    name: Optional[str] = None
+    role: Optional[str] = None
+    is_active: Optional[bool] = None
     id: Optional[int] = None
+    class Config:
+        extra = "ignore"
+
+class UserInDB(UserBase):
+    id: int
     is_active: bool = True
     role: str = "user"
     auth_method: AuthMethod
     external_id: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         orm_mode = True
 
 class UserResponse(UserInDB):
     pass
+
+class GroupBase(BaseModel):
+    name: str
+    description: str
+
+class GroupCreate(GroupBase):
+    pass
+
+class GroupUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+class GroupInDB(GroupBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        orm_mode = True
+
+class GroupResponse(GroupInDB):
+    users: List[UserResponse] = []
 
 class Token(BaseModel):
     access_token: str

@@ -4,14 +4,16 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Users, Cog } from 'lucide-react'
+import { User, Users, Shield, Key } from 'lucide-react'
 
-const settingsMenu = [
-  { name: 'User Management', href: '/settings/user-management', icon: Users },
-  { name: 'System Settings', href: '/settings/system', icon: Cog },
+const userManagementMenu = [
+  { name: 'Users', href: '/settings/user-management/users', icon: User },
+  { name: 'Groups', href: '/settings/user-management/groups', icon: Users },
+  { name: 'Roles', href: '/settings/user-management/roles', icon: Shield },
+  { name: 'Authentication', href: '/settings/user-management/authentication', icon: Key },
 ]
 
-export default function SettingsPage() {
+export default function UserManagementPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <motion.h1 
@@ -20,10 +22,10 @@ export default function SettingsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        Settings
+        User Management
       </motion.h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {settingsMenu.map((item, index) => (
+        {userManagementMenu.map((item, index) => (
           <motion.div
             key={item.name}
             initial={{ opacity: 0, y: 20 }}
@@ -40,7 +42,7 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent>
                   <CardDescription>
-                    Manage {item.name.toLowerCase()} settings
+                    Manage {item.name.toLowerCase()}
                   </CardDescription>
                 </CardContent>
               </Card>

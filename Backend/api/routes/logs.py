@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func, cast, Date, text, column
+from sqlalchemy import desc, func, or_, cast, Date, text, column, String
 from Backend.api.database import get_db
 from Backend.api.models import LogEntry, LogEntryCreate, LogEntryResponse, PaginatedResponse, Customer, Device, Vendor, SeverityEnum
 from typing import List, Dict, Optional
@@ -25,54 +25,97 @@ async def create_log(request: Request, db: Session = Depends(get_db)):
     Create new log entries.
     """
     try:
-        body = await request.json()
-        logs = body if isinstance(body, list) else [body]
+        # Read the raw body content
+        body = await request.body()
+        body_str = body.decode('utf-8')
         
-        for log in logs:
-            if 'vendor' not in log or 'product' not in log or 'cnnid' not in log:
-                raise ValueError("Vendor, product, and cnnid fields are required for each log entry")
+        # Split the body into individual JSON objects
+        json_objects = [json.loads(obj) for obj in body_str.strip().split('\n')]
+        
+        logs_created = 0
+        for log_data in json_objects:
+            cnnid = log_data.get('cnnid')
+            vendor_name = log_data.get('vendor')
+            product_name = log_data.get('product')
+            device_type = log_data.get('device_type')
+            
+            # Generate default values if not provided
+            if not cnnid:
+                cnnid = f"UNKNOWN_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                logger.warning(f"Log entry received without CNNID. Generated default: {cnnid}")
+            
+            if not vendor_name:
+                vendor_name = "Unknown Vendor"
+                logger.warning(f"Log entry received without vendor. Using default: {vendor_name}")
+            
+            if not product_name:
+                product_name = "Unknown Product"
+                logger.warning(f"Log entry received without product. Using default: {product_name}")
+            
+            if not device_type:
+                device_type = "Unknown Device Type"
+                logger.warning(f"Log entry received without device type. Using default: {device_type}")
             
             # Ensure customer exists
-            customer = db.query(Customer).filter(Customer.cnnid == log['cnnid']).first()
+            customer = db.query(Customer).filter(Customer.cnnid == cnnid).first()
             if not customer:
-                customer = Customer(cnnid=log['cnnid'], name=f"Customer {log['cnnid']}")
+                customer = Customer(cnnid=cnnid, name=f"Customer {cnnid}")
                 db.add(customer)
                 db.commit()
                 db.refresh(customer)
+                logger.info(f"Created new customer with CNNID: {cnnid}")
+
+            # Ensure vendor exists
+            vendor = db.query(Vendor).filter(Vendor.name == vendor_name).first()
+            if not vendor:
+                vendor = Vendor(name=vendor_name)
+                db.add(vendor)
+                db.commit()
+                db.refresh(vendor)
+                logger.info(f"Created new vendor: {vendor_name}")
 
             # Ensure product exists
-            product = db.query(Device).filter(Device.name == log['product']).first()
+            product = db.query(Device).filter(Device.name == product_name, Device.vendor == vendor).first()
             if not product:
-                vendor = db.query(Vendor).filter(Vendor.name == log['vendor']).first()
-                if not vendor:
-                    vendor = Vendor(name=log['vendor'])
-                    db.add(vendor)
-                    db.commit()
-                    db.refresh(vendor)
-                product = Device(name=log['product'], type=log.get('device_type', 'unknown'), vendor=vendor)
+                product = Device(name=product_name, type=device_type, vendor=vendor)
                 db.add(product)
                 db.commit()
                 db.refresh(product)
+                logger.info(f"Created new product: {product_name}")
 
+            # Create log entry 
             log_entry = LogEntryCreate(
-                timestamp=datetime.fromisoformat(log['timestamp']),
-                message=log['message'],
-                severity=SeverityEnum(log['severity']),
+                timestamp=log_data.get('timestamp', datetime.now().isoformat()),
+                message=log_data.get('message', 'No message provided'),
+                severity=log_data.get('severity', 'unknown'),
                 device_id=product.id,
-                vendor=log['vendor'],
-                cnnid=log['cnnid'],
-                product=log['product'],
-                device_type=log.get('device_type', 'unknown')
+                cnnid=cnnid,
+                vendor=vendor_name,
+                product=product_name,
+                device_type=device_type
             )
             db_log = LogEntry(**log_entry.dict())
             db.add(db_log)
+            logs_created += 1
             logger.debug(f"Inserted log: {db_log.vendor} - {db_log.timestamp} - {db_log.cnnid} - {db_log.product}")
+        
         db.commit()
-        logger.info(f"Received {len(logs)} log entries")
-        return {"status": "success", "message": f"{len(logs)} log entries received and processed"}
+        logger.info(f"Received and processed {logs_created} log entries")
+        return {"status": "success", "message": f"{logs_created} log entries received and processed"}
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON Decode Error: {str(e)}")
+        logger.error(f"Received body: {body_str}")
+        raise HTTPException(status_code=400, detail=f"Invalid JSON format: {str(e)}")
+    except SQLAlchemyError as e:
+        logger.error(f"Database error in create_log: {str(e)}")
+        logger.error(traceback.format_exc())
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error occurred: {str(e)}")
     except Exception as e:
-        logger.error(f"Error processing log entries: {str(e)}")
-        raise HTTPException(status_code=400, detail=f"Invalid log entries: {str(e)}")
+        logger.error(f"Unexpected error in create_log: {str(e)}")
+        logger.error(traceback.format_exc())
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
 @router.get("/logs", response_model=PaginatedResponse, summary="Get logs")
 async def get_logs(
@@ -93,24 +136,34 @@ async def get_logs(
     Retrieve logs based on search criteria.
     """
     try:
-        logger.debug(f"Received request with parameters: query={query}, vendor={vendor}, page={page}, page_size={page_size}, sort_by={sort_by}, sort_order={sort_order}")
+        logger.debug(f"Received request with parameters: query={query}, vendor={vendor}, severity={severity}, device_type={device_type}, page={page}, page_size={page_size}, sort_by={sort_by}, sort_order={sort_order}")
     
         db_query = db.query(LogEntry)
     
         if query:
-            db_query = db_query.filter(LogEntry.message.ilike(f"%{query}%"))
+            search_term = f"%{query}%"
+            db_query = db_query.filter(or_(
+                LogEntry.message.ilike(search_term),
+                LogEntry.vendor.ilike(search_term),
+                LogEntry.cnnid.ilike(search_term),
+                LogEntry.device_type.ilike(search_term),
+                func.lower(cast(LogEntry.severity, String)).like(func.lower(search_term)),
+                LogEntry.product.ilike(search_term)
+            ))
+        
+        # Apply specific filters
+        if vendor:
+            db_query = db_query.filter(func.lower(LogEntry.vendor) == func.lower(vendor))
+        if severity:
+            db_query = db_query.filter(func.lower(cast(LogEntry.severity, String)) == func.lower(severity))
+        if device_type:
+            db_query = db_query.filter(func.lower(LogEntry.device_type) == func.lower(device_type))
+        if cnnid:
+            db_query = db_query.filter(LogEntry.cnnid == cnnid)
         if start_time:
             db_query = db_query.filter(LogEntry.timestamp >= start_time)
         if end_time:
             db_query = db_query.filter(LogEntry.timestamp <= end_time)
-        if cnnid:
-            db_query = db_query.filter(LogEntry.cnnid == cnnid)
-        if vendor:
-            db_query = db_query.filter(func.lower(LogEntry.vendor) == func.lower(vendor))
-        if device_type:
-            db_query = db_query.filter(LogEntry.device_type == device_type)
-        if severity:
-            db_query = db_query.filter(LogEntry.severity == severity)
     
         # Validate and apply sorting
         valid_columns = ['timestamp', 'severity', 'message', 'vendor', 'cnnid', 'device_type', 'product']
@@ -311,7 +364,15 @@ async def export_logs(
         db_query = db.query(LogEntry)
         
         if query:
-            db_query = db_query.filter(LogEntry.message.ilike(f"%{query}%"))
+            search_term = f"%{query}%"
+            db_query = db_query.filter(or_(
+                LogEntry.message.ilike(search_term),
+                LogEntry.vendor.ilike(search_term),
+                LogEntry.cnnid.ilike(search_term),
+                LogEntry.device_type.ilike(search_term),
+                LogEntry.severity.ilike(search_term),
+                LogEntry.product.ilike(search_term)
+            ))
         if start_time:
             db_query = db_query.filter(LogEntry.timestamp >= start_time)
         if end_time:
@@ -321,20 +382,21 @@ async def export_logs(
         if vendor:
             db_query = db_query.filter(func.lower(LogEntry.vendor) == func.lower(vendor))
         if device_type:
-            db_query = db_query.filter(LogEntry.device_type == device_type)
+            db_query = db_query.filter(func.lower(LogEntry.device_type) == func.lower(device_type))
         if severity:
-            db_query = db_query.filter(LogEntry.severity == severity)
+            db_query = db_query.filter(func.lower(LogEntry.severity) == func.lower(severity))
         
         # Validate sort_by column exists
-        valid_columns = ['timestamp', 'severity', 'message', 'vendor', 'cnnid', 'device_type']
+        valid_columns = ['timestamp', 'severity', 'message', 'vendor', 'cnnid', 'device_type', 'product']
         if sort_by not in valid_columns:
             sort_by = 'timestamp'  # Default to timestamp if invalid column
         
         # Apply sorting
+        sort_column = getattr(LogEntry, sort_by)
         if sort_order.lower() == "asc":
-            db_query = db_query.order_by(getattr(LogEntry, sort_by))
+            db_query = db_query.order_by(sort_column)
         else:
-            db_query = db_query.order_by(desc(getattr(LogEntry, sort_by)))
+            db_query = db_query.order_by(desc(sort_column))
         
         # Get all matching logs
         logs = db_query.all()
@@ -344,7 +406,7 @@ async def export_logs(
         writer = csv.writer(output)
         
         # Write headers
-        writer.writerow(['Timestamp', 'Severity', 'Message', 'Vendor', 'CNNID', 'Device Type'])
+        writer.writerow(['Timestamp', 'Severity', 'Message', 'Vendor', 'CNNID', 'Device Type', 'Product'])
         
         # Write data
         for log in logs:
@@ -354,7 +416,8 @@ async def export_logs(
                 log.message,
                 log.vendor,
                 log.cnnid,
-                log.device_type
+                log.device_type,
+                log.product
             ])
         
         # Get the CSV content

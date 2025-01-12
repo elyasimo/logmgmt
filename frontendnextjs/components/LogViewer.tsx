@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
+import { useDebounce } from 'use-debounce'
 import { API_ENDPOINTS } from '@/config/api'
-import { Search, SlidersHorizontal, ChevronUp, ChevronDown, Download } from 'lucide-react'
+import { Search, SlidersHorizontal, ChevronUp, ChevronDown, Download, Loader2 } from 'lucide-react'
 
 interface Log {
   id: string
@@ -47,22 +48,9 @@ const LogViewer: React.FC = () => {
     direction: 'desc'
   })
 
-  useEffect(() => {
-    fetchLogs()
-    fetchVendors()
-  }, [currentPage, filters, sort])
+  const [debouncedFilters] = useDebounce(filters, 300)
 
-  const fetchVendors = async () => {
-    try {
-      const response = await axios.get(`${API_ENDPOINTS.LOGS}/vendors`)
-      setVendors(response.data)
-    } catch (err) {
-      console.error('Error fetching vendors:', err)
-      setError('Failed to fetch vendors. Please try again later.')
-    }
-  }
-
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -70,7 +58,10 @@ const LogViewer: React.FC = () => {
         params: {
           page: currentPage,
           page_size: logsPerPage,
-          ...filters,
+          query: debouncedFilters.query,
+          vendor: debouncedFilters.vendor,
+          severity: debouncedFilters.severity,
+          device_type: debouncedFilters.device_type,
           sort_by: sort.column,
           sort_order: sort.direction
         }
@@ -86,6 +77,24 @@ const LogViewer: React.FC = () => {
       console.error('Error fetching logs:', err)
     } finally {
       setLoading(false)
+    }
+  }, [currentPage, debouncedFilters, sort, logsPerPage])
+
+  useEffect(() => {
+    fetchLogs()
+  }, [fetchLogs])
+
+  useEffect(() => {
+    fetchVendors()
+  }, [])
+
+  const fetchVendors = async () => {
+    try {
+      const response = await axios.get(`${API_ENDPOINTS.LOGS}/vendors`)
+      setVendors(response.data)
+    } catch (err) {
+      console.error('Error fetching vendors:', err)
+      setError('Failed to fetch vendors. Please try again later.')
     }
   }
 
@@ -231,9 +240,13 @@ const LogViewer: React.FC = () => {
       )}
 
       {loading ? (
-        <div className="text-center text-cyan-400">Loading logs...</div>
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+        </div>
       ) : error ? (
-        <div className="text-center text-red-500">{error}</div>
+        <div className="text-center text-red-500 bg-red-900/20 border border-red-900 rounded-md p-4">
+          {error}
+        </div>
       ) : logs.length > 0 ? (
         <div className="overflow-x-auto rounded-lg border border-gray-800">
           <table className="min-w-full divide-y divide-gray-800">
@@ -280,7 +293,9 @@ const LogViewer: React.FC = () => {
           </table>
         </div>
       ) : (
-        <div className="text-center text-gray-400">No logs found.</div>
+        <div className="text-center text-gray-400 bg-gray-900/20 border border-gray-800 rounded-md p-4">
+          No logs found.
+        </div>
       )}
       <div className="flex justify-center gap-2 mt-4">
         <button

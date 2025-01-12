@@ -2,29 +2,25 @@
 
 import React from 'react'
 import { motion } from 'framer-motion'
-import { Users } from 'lucide-react'
+import { UserList } from "@/components/user-list"
 
 export default function UsersPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <motion.h1 
-        className="text-3xl font-bold mb-6 text-center text-neon-blue flex items-center justify-center"
+        className="text-3xl font-bold mb-6 text-neon-blue"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <Users className="mr-2" />
-        User Management
+        Users
       </motion.h1>
       <motion.div 
-        className="glassmorphism p-6"
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
+        transition={{ duration: 0.5 }}
       >
-        <p className="text-center text-lg">
-          User management features are currently under development. Please check back later for updates.
-        </p>
+        <UserList />
       </motion.div>
     </div>
   )
